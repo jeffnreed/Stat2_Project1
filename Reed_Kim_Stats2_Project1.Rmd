@@ -92,6 +92,33 @@ Autos$Number.of.Doors <- ifelse(Autos$Make == "Ferrari" & Autos$Model == "FF" & 
 sum(is.na(Autos$Number.of.Doors))
 
 ```
+Summary stats
+```{r sumtab}
+summary(Autos)
+```
+
+Address outliers
+``` {r}
+# Notable highway.MPG outlier
+# Auto A6 highway MPG of 354 is assumed to be an error thus we will replace with average of similar model and year
+Autos$highway.MPG[Autos$highway.MPG == 354] <- 31
+
+# Notable HP outliers = Bugatti and Lamborghini
+Autos[which.max(Autos$Engine.HP),]
+# Not an error but needs to be removed for model
+## I'm happy to take it out and put it in my garage though :)
+
+## Thoughts on removing electric vehicles given they don't have comparable characteristics as regular cars such as Engine.HP and Engine.Cylinders???
+sum(Autos$Engine.Fuel.Type == "electric") ## only 66 of large data set
+
+## Also I'm thinking we should remove Bugatti and Lambo???  Thoughts???
+Autos[Autos$Engine.Fuel.Type != "electric",]
+Autos[Autos$Make != "Bugatti",]
+Autos[Autos$Make != "Lamborghini",]
+## This didn't appear to filter properly.  Thoughts????
+
+```
+
 
 Summary stats
 ```{r sumtab}
@@ -103,48 +130,71 @@ summary(Autos)
   
 ```{r}
 pairs(~ Year + Engine.HP + Engine.Cylinders + highway.MPG + city.mpg + Popularity + MSRP, data = Autos)
+
+### I wonder if we should explore taking the log of Engine.HP???
 ```
 
-Address outliers
-``` {r}
-# Notable HP outlier
-Autos[which.max(Autos$Engine.HP),]
-# Not an outlier but may need to be removed for model
-## I'm happy to take it out and put it in my garage though :)
 
-# Notable highway.MPG outlier
-# Auto A6 highway MPG of 354 is assumed to be an error thus we will replace with average of similar model and year
-Autos$highway.MPG[Autos$highway.MPG == 354] <- 31
+
+``` {r}
+# Other EDA
 
 # May need to remove electric vehicles from the scatterplots as well to increase insightfulness????
 
-# Thoughts on doing other scatterplots???  Or other EDA tools??? VIF?
+# Thoughts on doing other EDA visuals? Boxplots? Histograms? Etc????
 
 ```
 
 
 Model
 ```{r}
-# split into test, training and validation sets
-library(caret)
-set.seed(123) #randomization`
-trainIndex <- createDataPartition(Autos$MSRP,p=0.8,list=FALSE)
-Autos_Train <- Autos[trainIndex,] 
-Autos_Test <- Autos[-trainIndex,] 
-
-### I'm not sure how to split it three ways????
-
-
-
-
 
 # simple MLR
 full.model<-lm(MSRP ~ Year + Engine.HP + Engine.Cylinders + highway.MPG + Popularity,data=Autos)
 summary(full.model)
+par(mfrow=c(2,2))
+plot(full.model) 
+#Which obs are outliers according to Cooks D
+cooksd <- cooks.distance(full.model)
+plot(cooksd, pch="*", cex=2, main="Influential Obs by Cooks distance")  # plot cook's distance
+abline(h = 4*mean(cooksd, na.rm=T), col="red")  # add cutoff line
+text(x=1:length(cooksd)+1, y=cooksd, labels=ifelse(cooksd>4*mean(cooksd, na.rm=T),names(cooksd),""), col="red")
+plot(rstudent(full.model))
+# Influence Plot
+influencePlot(full.model,  main="Influence Plot")
+#influencePlot(full.model, id.method="identify", main="Influence Plot", sub="Circle size is proportional to Cook's Distance" )
 
+# split into test, training and validation sets
+library(caret)
+set.seed(123) #randomization
+trainIndex <- createDataPartition(Autos$MSRP,p=0.8,list=FALSE)
+Autos_Train <- Autos[trainIndex,] 
+Autos_Test <- Autos[-trainIndex,] 
+### I'm not sure how to split it three ways????
 
-library(leaps)
-reg.fwd.Autos=regsubsets(MSRP ~ Year + Engine.HP + Engine.Cylinders + highway.MPG + Popularity,data=Autos,method="forward",nvmax=15)
-summary(reg.fwd.Autos)
+## starting getting errors when running this code below
+# Forward Selection 
+reg.fwd=regsubsets(MSRP~.,data=Autos_Train,method="forward",nvmax=20)
+bics<-summary(reg.fwd)$bic
+plot(1:20,bics,type="l",ylab="BIC",xlab="# of predictors")
+index<-which(bics==min(bics))
+points(index,bics[index],col="red",pch=10)
+print("Min Bics is:")
+which(bics==min(bics))
+ 
+# Adjr2
+adjr2<-summary(reg.fwd)$adjr2
+plot(1:20,adjr2,type="l",ylab="Adjusted R-squared",xlab="# of predictors")
+index<-which(adjr2==max(adjr2))
+points(index,adjr2[index],col="red",pch=10)
+print("Max Adj R2 is:")
+which(adjr2==max(adjr2))
 
+# MallowCP
+MallowCP <- summary(reg.fwd)$cp
+plot(1:20,MallowCP,type="l",ylab="Mallow's CP",xlab="# of predictors")
+index<-which(MallowCP==min(MallowCP))
+points(index,MallowCP[index],col="red",pch=10)
+print("Min Mallow CP is:")
+which(MallowCP==min(MallowCP))
 ```
