@@ -1,0 +1,150 @@
+---
+title: "Stats2_Project1"
+author: "Team Reed & Kim"
+date: "9/17/2021"
+output: html_document
+---
+
+Load libraries and data
+``` {r}
+library(tidyverse)
+library(leaps)
+library(ggplot2)
+library(dplyr)
+
+Autos = read.csv(file.choose(), header=TRUE)
+head(Autos)
+summary(Autos)
+str(Autos)
+```
+
+Clean data
+``` {r}
+# Change columns to appropriate variable type
+Autos$Make <- as.factor(Autos$Make)
+Autos$Model <- as.factor(Autos$Model)
+Autos$Year <- as.numeric(Autos$Year)
+Autos$Engine.Fuel.Type <- as.factor(Autos$Engine.Fuel.Type)
+Autos$Engine.HP <- as.numeric(Autos$Engine.HP)
+Autos$Engine.Cylinders <- as.numeric(Autos$Engine.Cylinders)
+Autos$Transmission.Type <- as.factor(Autos$Transmission.Type)
+Autos$Driven_Wheels <- as.factor(Autos$Driven_Wheels)
+Autos$Number.of.Doors <- as.numeric(Autos$Number.of.Doors)
+Autos$Market.Category <- as.factor(Autos$Market.Category)
+Autos$Vehicle.Size <- as.factor(Autos$Vehicle.Size)
+Autos$Vehicle.Style <- as.factor(Autos$Vehicle.Style)
+Autos$highway.MPG <- as.numeric(Autos$highway.MPG)
+Autos$city.mpg <- as.numeric(Autos$city.mpg)
+Autos$Popularity <- as.numeric(Autos$Popularity)
+Autos$MSRP <- as.numeric(Autos$MSRP)
+str(Autos)
+```
+
+Address Missing Values
+``` {r}
+# Change Engine Fuel Type to factor and fill in blanks of 2004 Suzuki Verona with regular unleaded given 2005 and 2006 characteristics similarities
+Autos %>% fill(Engine.Fuel.Type, .direction = "up")
+sum(is.na(Autos$Engine.Fuel.Type))
+
+## Horsepower adjustments
+# Count blank values
+sum(is.na(Autos$Engine.HP))
+
+### ??? I'm not sure what to do about electric vehicles.......THOUGHTS???
+# Change HP to 0 for Engine.Fuel.Type = electric given the engine power is not comparable to regular engines
+Autos$Engine.HP <- ifelse(Autos$Engine.Fuel.Type == "electric", "0", Autos$Engine.HP)
+
+# Fill in 2017 Lincoln Continental blank HP data with HP data of same car with different fuel type as this doesn't affect HP
+Autos$Engine.HP <- ifelse(Autos$Make == "Lincoln" & Autos$Model == "Continental" & Autos$Year == "2017", "305", Autos$Engine.HP)
+
+# Fill in 2017 Ford Escape blank HP data with HP data of same car with different wheel drive and missing values as this doesn't affect HP
+Autos$Engine.HP <- ifelse(Autos$Make == "Ford" & Autos$Model == "Escape" & Autos$Year == "2017", "168", Autos$Engine.HP)
+
+# Fill in blank values for 2005 Ford Freestar with HP data of comparable cars of 2006 thus assuming they are similar in HP
+Autos$Engine.HP <- ifelse(Autos$Make == "Ford" & Autos$Model == "Freestar" & Autos$Year == "2005" & Autos$Vehicle.Style == "Passenger Minivan", "201", Autos$Engine.HP)
+Autos$Engine.HP <- ifelse(Autos$Make == "Ford" & Autos$Model == "Freestar" & Autos$Year == "2005" & Autos$Vehicle.Style == "Cargo Minivan", "193", Autos$Engine.HP)
+
+# Fill in blank value for 2015, 2016 and 2017 Chevrolet Impala unleaded/natural gas with HP from same car that runs on E85 thus assuming these differences don't affect HP
+Autos$Engine.HP <- ifelse(Autos$Make == "Chevrolet" & Autos$Model == "Impala" & Autos$Year == "2015" & Autos$Engine.Fuel.Type == "flex-fuel (unleaded/natural gas)", "305", Autos$Engine.HP)
+Autos$Engine.HP <- ifelse(Autos$Make == "Chevrolet" & Autos$Model == "Impala" & Autos$Year == "2016" & Autos$Engine.Fuel.Type == "flex-fuel (unleaded/natural gas)", "305", Autos$Engine.HP)
+Autos$Engine.HP <- ifelse(Autos$Make == "Chevrolet" & Autos$Model == "Impala" & Autos$Year == "2017" & Autos$Engine.Fuel.Type == "flex-fuel (unleaded/natural gas)", "305", Autos$Engine.HP)
+
+# Fill in blank value for 2015 Mercedes M-Class diesel with same HP from 2014 model as it appears that HP hasn't changed from year to year
+Autos$Engine.HP <- ifelse(Autos$Make == "Mercedes-Benz" & Autos$Model == "M-Class" & Autos$Year == "2015" & Autos$Engine.Fuel.Type == "diesel", "240", Autos$Engine.HP)
+
+# Fill in blank values for 2017 Lincoln MKZ based on the values of similar cars based on year, model and make, all of which have HP of 245
+Autos$Engine.HP <- ifelse(Autos$Make == "Lincoln" & Autos$Model == "MKZ" & Autos$Year == "2017", "245", Autos$Engine.HP)
+sum(is.na(Autos$Engine.HP))
+
+# Count blank values
+sum(is.na(Autos$Engine.HP))
+
+
+# Adjust electric Engine Cylinders by filling in blank values with 0
+# ??? Not sure why this isn't working....THOUGHTS???  Similar situation as above with what to do with Electric cars.....
+Autos$Engine.Cylinders <- ifelse(Autos$Engine.Fuel.Type == "electric", "0", Autos$Engine.Cylinders)
+sum(is.na(Autos$Engine.Cylinders))
+
+
+# Fill in missing values in Number of Doors with values from similar cars based on Make and Model
+Autos$Number.of.Doors <- ifelse(Autos$Make == "Tesla" & Autos$Model == "Model S" & Autos$Year == "2016" , "4", Autos$Number.of.Doors)
+Autos$Number.of.Doors <- ifelse(Autos$Make == "Ferrari" & Autos$Model == "FF" & Autos$Year == "2013", "2", Autos$Number.of.Doors)
+sum(is.na(Autos$Number.of.Doors))
+
+```
+
+Summary stats
+```{r sumtab}
+summary(Autos)
+```
+
+
+   
+  
+```{r}
+pairs(~ Year + Engine.HP + Engine.Cylinders + highway.MPG + city.mpg + Popularity + MSRP, data = Autos)
+```
+
+Address outliers
+``` {r}
+# Notable HP outlier
+Autos[which.max(Autos$Engine.HP),]
+# Not an outlier but may need to be removed for model
+## I'm happy to take it out and put it in my garage though :)
+
+# Notable highway.MPG outlier
+# Auto A6 highway MPG of 354 is assumed to be an error thus we will replace with average of similar model and year
+Autos$highway.MPG[Autos$highway.MPG == 354] <- 31
+
+# May need to remove electric vehicles from the scatterplots as well to increase insightfulness????
+
+# Thoughts on doing other scatterplots???  Or other EDA tools??? VIF?
+
+```
+
+
+Model
+```{r}
+# split into test, training and validation sets
+library(caret)
+set.seed(123) #randomization`
+trainIndex <- createDataPartition(Autos$MSRP,p=0.8,list=FALSE)
+Autos_Train <- Autos[trainIndex,] 
+Autos_Test <- Autos[-trainIndex,] 
+
+### I'm not sure how to split it three ways????
+
+
+
+
+
+# simple MLR
+full.model<-lm(MSRP ~ Year + Engine.HP + Engine.Cylinders + highway.MPG + Popularity,data=Autos)
+summary(full.model)
+
+
+library(leaps)
+reg.fwd.Autos=regsubsets(MSRP ~ Year + Engine.HP + Engine.Cylinders + highway.MPG + Popularity,data=Autos,method="forward",nvmax=15)
+summary(reg.fwd.Autos)
+
+```
